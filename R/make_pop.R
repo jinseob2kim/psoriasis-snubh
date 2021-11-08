@@ -24,7 +24,7 @@ sub_t60 <- merge(read_fst(file.path(path.KNHIS, "t1_160.fst"), as.data.table = T
 
 ## Save
 for (v in c(20, 30, 40, 60)){
-  code.save <- paste0("fst::write_fst(sub_t", v, ", '/home/js/ShinyApps/kbori87/psoriasis/t", v, "s.fst')")
+  code.save <- paste0("fst::write_fst(sub_t", v, ", '/home/js/ShinyApps/kbori87/psoriasis-snubh/t", v, "s.fst')")
   eval(parse(text=code.save))
 }
 
