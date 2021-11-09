@@ -270,7 +270,11 @@ imsi4 %>% filter(severe_index==1) %>% arrange(n)
 # imsi4를 View통해서 볼때 임의의 열에 필터링 적용 후 보면 뭔가 뒤틀리게 보이는데 필터링 안하고 보면 잘 맞는듯 합니다.
 
 almost_final_result<-left_join(imsi4[,-c(2,4)],mid_result,by=c("PERSON_ID","index_date"))
-almost_final_result %>% group_by(severe_index) %>% summarise(mean_suv=mean(survival_date))
+almost_final_result %>% group_by(severe_index,before_index) %>% summarise(mean_suv=mean(survival_date))
+#아주 단순히 중증건선과 심혈관질환 있고없고를 살펴보니,
+#중증건선인 집단에서 심혈관/정상 그룹의 생존기간차이가
+#중증건선이 아닌집단(치료를 덜받은?)의 심혈관/정상 그룹 생존기간차이보다 작다.
+
 
 #  필터링에 따른 표본 수  변화 과정 ------------------------------------------------------------
 
