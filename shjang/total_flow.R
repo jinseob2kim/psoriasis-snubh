@@ -271,6 +271,14 @@ imsi4 %>% filter(severe_index==1) %>% arrange(n)
 
 almost_final_result<-left_join(imsi4[,-c(2,4)],mid_result,by=c("PERSON_ID","index_date"))
 almost_final_result %>% group_by(severe_index,before_index) %>% summarise(mean_suv=mean(survival_date))
+
+#              severe_index   before_index    mean_suv
+#              <dbl>          <dbl>           <dbl>
+# 1              0               1             889.
+# 2              0              NA            1488.
+# 3              1               1            1215.
+# 4              1              NA            1439.
+
 #아주 단순히 중증건선과 심혈관질환 있고없고를 살펴보니,
 #중증건선인 집단에서 심혈관/정상 그룹의 생존기간차이가
 #중증건선이 아닌집단(치료를 덜받은?)의 심혈관/정상 그룹 생존기간차이보다 작다.
