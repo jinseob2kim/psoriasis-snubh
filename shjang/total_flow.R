@@ -269,6 +269,8 @@ table(imsi4$severe_index)
 imsi4 %>% filter(severe_index==1) %>% arrange(n)
 # imsi4를 View통해서 볼때 임의의 열에 필터링 적용 후 보면 뭔가 뒤틀리게 보이는데 필터링 안하고 보면 잘 맞는듯 합니다.
 
+almost_final_result<-left_join(imsi4[,-c(2,4)],mid_result,by=c("PERSON_ID","index_date"))
+almost_final_result %>% group_by(severe_index) %>% summarise(mean_suv=mean(survival_date))
 
 #  필터링에 따른 표본 수  변화 과정 ------------------------------------------------------------
 
