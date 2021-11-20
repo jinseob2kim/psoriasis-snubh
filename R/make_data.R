@@ -55,8 +55,6 @@ colnames(prev_dx) <- paste0("prev_", colnames(prev_dx))
 ## Exclude prev CVD, Stroke, others
 data.ex <- cbind(data.40, prev_dx)[!apply(prev_dx[, -1], 1, any)]
 
-
-
 ## N attr
 attr <- list(
   "L40" = t20s[, length(unique(PERSON_ID))],
@@ -66,6 +64,12 @@ attr <- list(
 )
 
 
+## Treat
+code.uvB <- c("MM331", "MM332", "MM333", "MM334")  ## t30
+code.txdrug <- list(
+  Cyclosporine = c("139201ACS", "139203ALQ", "139204ACS", "194701ACH", "194701ALQ", "194702ACH", "194701ACS",
+                   "194702ACS", "194703ACS", "194730ALQ", "194731ALQ", "139202BIJ", "139230BIJ")
+)
 
 
 
