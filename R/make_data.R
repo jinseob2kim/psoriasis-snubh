@@ -40,27 +40,45 @@ code.dx <- list(
   Dysplipidemia = "E78"
 )
 
-## Previous disease
-range.prev_dx <- c(-99999, -1)  ## Range to search
+## Previous range
+range.prev <- c(-99999, -1)  ## Range to search
 
 prev_dx <- mclapply(code.dx, function(v){
   merge(t20s[, .(PERSON_ID, KEY_SEQ)], t40s[like(SICK_SYM, paste(v, collapse = "|")), .(dxdate = RECU_FR_DT[1]), keyby = "KEY_SEQ"], by = "KEY_SEQ")[, dxdate := ymd(dxdate)] %>%
     merge(data.40[, .(PERSON_ID, Indexdate)], by = "PERSON_ID", all.y = T) %>%
-    .[, .(dx = as.integer(any(dxdate >= Indexdate + range.prev_dx[1] & dxdate <= Indexdate + range.prev_dx[2]))), keyby = "PERSON_ID"] %>%
+    .[, .(dx = as.integer(any(dxdate >= Indexdate + range.prev[1] & dxdate <= Indexdate + range.prev[2]))), keyby = "PERSON_ID"] %>%
     .[, .(dx = ifelse(is.na(dx), 0, dx))] %>% .$dx
 
 }, mc.cores = length(code.dx)) %>% do.call(cbind, .)
 colnames(prev_dx) <- paste0("prev_", colnames(prev_dx))
 
+
+## Drug
+#dname <- readxl::excel_sheets("Medication 재정리_2021-08-05.xlsx")
+#code.drug <- lapply(dname, function(x){readxl::read_excel("Medication 재정리_2021-08-05.xlsx", sheet = x)[[1]]})
+#names(code.drug) <- dname
+#saveRDS(code.drug, "druginfo.RDS")
+code.drug <- readRDS("druginfo.RDS")
+
+
+prev_drug <- mclapply(code.drug[c("Statin", "Beta-Blocker")], function(v){
+  merge(t20s[, .(PERSON_ID, KEY_SEQ)], t60s[GNL_NM_CD %in% v, .(drdate = RECU_FR_DT[1]), keyby = "KEY_SEQ"], by = "KEY_SEQ")[, drdate := ymd(drdate)] %>%
+    merge(data.40[, .(PERSON_ID, Indexdate)], by = "PERSON_ID", all.y = T) %>%
+    .[, .(dr = as.integer(any(drdate >= Indexdate + range.prev[1] & drdate <= Indexdate + range.prev[2]))), keyby = "PERSON_ID"] %>%
+    .[, .(dr = ifelse(is.na(dr), 0, dr))] %>% .$dr
+}) %>% do.call(cbind, .)
+colnames(prev_drug) <- paste0("prev_", c("Statin", "Beta-Blocker"))
+
+
 ## Exclude prev CVD, Stroke, others
-data.ex <- cbind(data.40, prev_dx)[!apply(prev_dx[, -1], 1, any)]
+data.ex <- cbind(data.40, prev_dx, prev_drug)[!apply(prev_dx[, paste0("prev_", c("COPD", "CKD", "LC", "HF"))], 1, any)]
 
 ## N attr
 attr <- list(
   "L40" = t20s[, length(unique(PERSON_ID))],
   "2 time L40 in 1yr, after 2006" = nrow(data.st),
   "AGE ≥40" = nrow(data.40),
-  "Exclude prev CVD/Stroke/Others" = nrow(data.ex)
+  "Exclude prev CVD/Stroke/COPD/CKD/LC/HF" = nrow(data.ex)
 )
 
 
