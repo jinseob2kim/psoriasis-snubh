@@ -99,6 +99,60 @@ code.txdrug <- list(
 )
 
 
+t60.txdrug <- merge(t20s[, .(PERSON_ID, KEY_SEQ)],
+                    t60s[GNL_NM_CD %in% unlist(code.txdrug)][order(RECU_FR_DT, MDCN_EXEC_FREQ), .SD[.N], keyby = "KEY_SEQ"], by = "KEY_SEQ") %>%
+  .[, RECU_FR_DT := ymd(RECU_FR_DT)] %>% .[]
+
+t30.uvb <- merge(t20s[, .(PERSON_ID, KEY_SEQ)],
+                 t30s[DIV_CD %in% code.uvB][order(RECU_FR_DT, MDCN_EXEC_FREQ), .SD[.N], keyby = "KEY_SEQ"], by = "KEY_SEQ") %>%
+  .[, RECU_FR_DT := ymd(RECU_FR_DT)] %>% .[]
+
+
+## Function- duration: Drug duration, Gap: gap
+dur_conti <- function(indi, duration = 180, gap = 30){
+  data.ind <- t60.txdrug[PERSON_ID == indi, .(start = RECU_FR_DT, MDCN_EXEC_FREQ)]
+
+  ## Drug date list
+  datelist <- lapply(1:nrow(data.ind), function(x){data.ind[x, seq(start, start + MDCN_EXEC_FREQ, by = 1)]}) %>%
+    Reduce(c, .) %>% unique %>% sort
+  df <- diff(datelist)
+  ## Gap change
+  df[df <= gap] <- 1
+
+  ## New datelist
+  datelist2 <- datelist[1] + c(0, cumsum(as.integer(df)))
+
+  ## Conti duration
+  res <- data.table(PERSON_ID = indi,
+                    start = datelist,
+                    dur_conti = sapply(seq_along(datelist2), function(v){
+                      zz <- datelist2[v:length(datelist2)]
+                      return(ifelse(any(diff(zz) > 1), which(diff(zz) > 1)[1] - 1, length(zz) - 1))
+                    }))
+  return(res[dur_conti >= duration][1])
+}
+
+## Function for UBV
+dur_conti30 <- function(indi, duration = 90, nprocedure = 12){
+  data.ind <- t30.uvb[PERSON_ID == indi, .(start = RECU_FR_DT, MDCN_EXEC_FREQ)]
+
+  ## Drug date list
+  datelist <- lapply(1:nrow(data.ind), function(x){data.ind[x, seq(start, start + MDCN_EXEC_FREQ, by = 1)]}) %>%
+    Reduce(c, .) %>% unique %>% sort
+
+  res <- data.table(PERSON_ID = indi,
+                    start = datelist,
+                    n_procedure = sapply(seq_along(datelist), function(x){
+                      sum(datelist[x:length(datelist)] >= datelist[x] & datelist[x:length(datelist)] <= datelist[x] + duration)
+                    }))
+
+  return(res[n_procedure >= nprocedure][1])
+}
+
+## Result
+cc <-mclapply(unique(t60.txdrug$PERSON_ID), dur_conti, duration = 180) %>% rbindlist() %>% .[!is.na(PERSON_ID)]
+
+cc1 <- mclapply(unique(t30.uvb$PERSON_ID), dur_conti30, duration = 90, nprocedure = 12) %>% rbindlist() %>% .[!is.na(PERSON_ID)]
 
 
 
