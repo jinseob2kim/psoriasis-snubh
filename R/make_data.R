@@ -109,8 +109,12 @@ t30.uvb <- merge(t20s[, .(PERSON_ID, KEY_SEQ)],
 
 
 ## Function- duration: Drug duration, Gap: gap
-dur_conti <- function(indi, duration = 180, gap = 30){
-  data.ind <- t60.txdrug[PERSON_ID == indi, .(start = RECU_FR_DT, MDCN_EXEC_FREQ)]
+dur_conti <- function(indi, duration = 180, gap = 30, washout = 365){
+
+  data.ind <- t60.txdrug[PERSON_ID == indi, .(start = RECU_FR_DT, MDCN_EXEC_FREQ)][start >= data.ex[PERSON_ID == indi]$Indexdate & start <= data.ex[PERSON_ID == indi]$Indexdate + washout]
+  if (nrow(data.ind) == 0){
+    return(data.table(PERSON_ID = NA, start = ymd(NA), dur_conti = NA))
+  }
 
   ## Drug date list
   datelist <- lapply(1:nrow(data.ind), function(x){data.ind[x, seq(start, start + MDCN_EXEC_FREQ, by = 1)]}) %>%
@@ -133,8 +137,12 @@ dur_conti <- function(indi, duration = 180, gap = 30){
 }
 
 ## Function for UBV
-dur_conti30 <- function(indi, duration = 90, nprocedure = 12){
-  data.ind <- t30.uvb[PERSON_ID == indi, .(start = RECU_FR_DT, MDCN_EXEC_FREQ)]
+dur_conti30 <- function(indi, duration = 90, nprocedure = 12, washout = 365){
+  data.ind <- t30.uvb[PERSON_ID == indi, .(start = RECU_FR_DT, MDCN_EXEC_FREQ)][start >= data.ex[PERSON_ID == indi]$Indexdate & start <= data.ex[PERSON_ID == indi]$Indexdate + washout]
+  if (nrow(data.ind) == 0){
+    return(data.table(PERSON_ID = NA, start = ymd(NA), n_procedure = NA))
+  }
+
 
   ## Drug date list
   datelist <- lapply(1:nrow(data.ind), function(x){data.ind[x, seq(start, start + MDCN_EXEC_FREQ, by = 1)]}) %>%
@@ -150,9 +158,9 @@ dur_conti30 <- function(indi, duration = 90, nprocedure = 12){
 }
 
 ## Result
-cc <-mclapply(unique(t60.txdrug$PERSON_ID), dur_conti, duration = 180) %>% rbindlist() %>% .[!is.na(PERSON_ID)]
+cc <- mclapply(intersect(data.ex$PERSON_ID, t60.txdrug$PERSON_ID), dur_conti, duration = 180) %>% rbindlist() %>% .[!is.na(PERSON_ID)]
 
-cc1 <- mclapply(unique(t30.uvb$PERSON_ID), dur_conti30, duration = 90, nprocedure = 12) %>% rbindlist() %>% .[!is.na(PERSON_ID)]
+cc1 <- mclapply(intersect(data.ex$PERSON_ID, t30.uvb$PERSON_ID), dur_conti30, duration = 90, nprocedure = 12) %>% rbindlist() %>% .[!is.na(PERSON_ID)]
 
 
 
