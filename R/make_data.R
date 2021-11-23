@@ -22,7 +22,7 @@ t20s[like(MAIN_SICK, "L50") | like(SUB_SICK, "L50")][order(RECU_FR_DT), .(diff =
 data.40 <- data.st[, `:=`(STND_Y = as.integer(substr(Indexdate, 1, 4)), Indexdate = ymd(Indexdate))] %>%
   merge(jk[, .(STND_Y,SEX, AGE_GROUP, PERSON_ID)], by = c("STND_Y", "PERSON_ID")) %>%
   merge(jk[!is.na(DTH_YM), .(PERSON_ID, deathdate = ym(DTH_YM) - 1, DTH_CODE1, DTH_CODE2)], by = "PERSON_ID", all.x = T) %>%
-  .[AGE_GROUP >= 9]
+  .[AGE_GROUP >= 5]
 
 
 ## Dx code
@@ -77,7 +77,7 @@ data.ex <- cbind(data.40, prev_dx, prev_drug)[!apply(prev_dx[, paste0("prev_", c
 attr <- list(
   "L40" = t20s[, length(unique(PERSON_ID))],
   "2 time L40 in 1yr, after 2006" = nrow(data.st),
-  "AGE ≥40" = nrow(data.40),
+  "AGE ≥20" = nrow(data.40),
   "Exclude prev CVD/Stroke/COPD/CKD/LC/HF" = nrow(data.ex)
 )
 
@@ -90,7 +90,10 @@ code.txdrug <- list(
   Methotrexate = c("192101ATB", "192107ATB", "192102BIJ", "192103BIJ", "192104BIJ", "192105BIJ", "192106BIJ",
                    "192107BIJ", "192108BIJ", "192109BIJ", "192110BIJ", "192111BIJ", "192132BIJ", "192134BIJ",
                    "192136BIJ", "192138BIJ", "192139BIJ", "192140BIJ", "192141BIJ", "192142BIJ", "192143BIJ", "192144BIJ"),
-  Acitretin = c("102301ACH", "102302ACH"),
+  Acitretin = c("102301ACH", "102302ACH")
+)
+
+code.biologics <- list(
   `TNF-α inhibitor` = c("455801BIJ", "455802BIJ", "455803BIJ", "455830BIJ", "455831BIJ", "383501BIJ", "383502BIJ",
                         "488401BIJ", "488430BIJ", "488431BIJ", "488433BIJ"),
   `Anti-IL-12/23p40` = c("615001BIJ", "615002BIJ", "615032BIJ", "615031BIJ", "615030BIJ"),
@@ -108,10 +111,11 @@ t30.uvb <- merge(t20s[, .(PERSON_ID, KEY_SEQ)],
   .[, RECU_FR_DT := ymd(RECU_FR_DT)] %>% .[]
 
 
-## Function- duration: Drug duration, Gap: gap
-dur_conti <- function(indi, duration = 180, gap = 30, washout = 365){
 
-  data.ind <- t60.txdrug[PERSON_ID == indi, .(start = RECU_FR_DT, MDCN_EXEC_FREQ)][start >= data.ex[PERSON_ID == indi]$Indexdate & start <= data.ex[PERSON_ID == indi]$Indexdate + washout]
+## Function- duration: Drug duration, Gap: gap
+dur_conti <- function(indi, duration = 90, gap = 30, washout = 365){
+
+  data.ind <- t60.txdrug[PERSON_ID == indi, .(start = RECU_FR_DT, MDCN_EXEC_FREQ)][start >= data.ex[PERSON_ID == indi]$Indexdate]
   if (nrow(data.ind) == 0){
     return(data.table(PERSON_ID = NA, start = ymd(NA), dur_conti = NA))
   }
@@ -133,12 +137,12 @@ dur_conti <- function(indi, duration = 180, gap = 30, washout = 365){
                       zz <- datelist2[v:length(datelist2)]
                       return(ifelse(any(diff(zz) > 1), which(diff(zz) > 1)[1] - 1, length(zz) - 1))
                     }))
-  return(res[dur_conti >= duration][1])
+  return(res[dur_conti >= duration & start <= data.ex[PERSON_ID == indi]$Indexdate + washout][1])
 }
 
 ## Function for UBV
-dur_conti30 <- function(indi, duration = 90, nprocedure = 12, washout = 365){
-  data.ind <- t30.uvb[PERSON_ID == indi, .(start = RECU_FR_DT, MDCN_EXEC_FREQ)][start >= data.ex[PERSON_ID == indi]$Indexdate & start <= data.ex[PERSON_ID == indi]$Indexdate + washout]
+dur_conti_uvb <- function(indi, duration = 90, nprocedure = 12, washout = 365){
+  data.ind <- t30.uvb[PERSON_ID == indi, .(start = RECU_FR_DT, MDCN_EXEC_FREQ)][start >= data.ex[PERSON_ID == indi]$Indexdate]
   if (nrow(data.ind) == 0){
     return(data.table(PERSON_ID = NA, start = ymd(NA), n_procedure = NA))
   }
@@ -154,13 +158,14 @@ dur_conti30 <- function(indi, duration = 90, nprocedure = 12, washout = 365){
                       sum(datelist[x:length(datelist)] >= datelist[x] & datelist[x:length(datelist)] <= datelist[x] + duration)
                     }))
 
-  return(res[n_procedure >= nprocedure][1])
+  return(res[n_procedure >= nprocedure & start <= data.ex[PERSON_ID == indi]$Indexdate + washout][1])
 }
 
-## Result
-cc <- mclapply(intersect(data.ex$PERSON_ID, t60.txdrug$PERSON_ID), dur_conti, duration = 180) %>% rbindlist() %>% .[!is.na(PERSON_ID)]
 
-cc1 <- mclapply(intersect(data.ex$PERSON_ID, t30.uvb$PERSON_ID), dur_conti30, duration = 90, nprocedure = 12) %>% rbindlist() %>% .[!is.na(PERSON_ID)]
+## Result
+cc <- mclapply(intersect(data.ex$PERSON_ID, t60.txdrug$PERSON_ID), dur_conti, duration = 90) %>% rbindlist() %>% .[!is.na(PERSON_ID)]
+
+cc1 <- mclapply(intersect(data.ex$PERSON_ID, t30.uvb$PERSON_ID), dur_conti_uvb, duration = 90, nprocedure = 12) %>% rbindlist() %>% .[!is.na(PERSON_ID)]
 
 
 
